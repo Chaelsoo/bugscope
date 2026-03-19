@@ -1,4 +1,4 @@
-# 🔍 BugScope
+# BugScope
 
 GitHub commit monitor. Watches target repos for security-relevant changes.
 
