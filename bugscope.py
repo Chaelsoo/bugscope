@@ -497,6 +497,9 @@ def main():
         time.sleep(0.5 if GITHUB_TOKEN else 2)
 
     save_state(state)
+    if TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        send_telegram(f"<b>BugScope done.</b> {total_alerts} alert(s) | {now}")
     log.info(f"Done. {total_alerts} alert(s) sent.")
 
 
