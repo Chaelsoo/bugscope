@@ -29,12 +29,7 @@ FLAGGED_LOG = SCRIPT_DIR / "flagged.jsonl"
 
 # Repos to monitor: (owner, repo, branch)
 TARGETS = [
-    ("nitrojs", "nitro", "main"),
-    ("vercel", "turborepo", "main"),
-    ("vercel", "flags", "main"),
-    ("vercel", "swr", "main"),
-    ("vercel-labs", "skills", "main"),
-    ("vercel", "vercel", "main")
+    # Add Targets Here
 ]
 
 KEYWORDS = [
