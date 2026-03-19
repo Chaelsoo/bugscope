@@ -1,0 +1,6 @@
+.env
+state.json
+flagged.jsonl
+bugscope.log
+__pycache__/
+ 
