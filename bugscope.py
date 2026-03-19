@@ -29,7 +29,12 @@ FLAGGED_LOG = SCRIPT_DIR / "flagged.jsonl"
 
 # Repos to monitor: (owner, repo, branch)
 TARGETS = [
-    # Add your targets here
+    ("nitrojs", "nitro", "main"),
+    ("vercel", "turborepo", "main"),
+    ("vercel", "flags", "main"),
+    ("vercel", "swr", "main"),
+    ("vercel-labs", "skills", "main"),
+    ("vercel", "vercel", "main")
 ]
 
 KEYWORDS = [
@@ -207,18 +212,18 @@ DIFF (truncated):
 
 LLM_CHAIN = [
     {
-        "name": "OpenRouter (Qwen3 Coder 480B)",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "key_env": "OPENROUTER_API_KEY",
-        "model": "qwen/qwen3-coder:free",
-        "extra_headers": {"HTTP-Referer": "https://github.com/bugscope", "X-Title": "BugScope"},
+        "name": "GitHub Models (GPT-4.1-mini)",
+        "url": "https://models.github.ai/inference/chat/completions",
+        "key_env": "GITHUB_TOKEN",
+        "model": "openai/gpt-4.1-mini",
+        "extra_headers": {},
     },
     {
-        "name": "OpenRouter (Nemotron 3 Super)",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "key_env": "OPENROUTER_API_KEY",
-        "model": "nvidia/nemotron-3-super:free",
-        "extra_headers": {"HTTP-Referer": "https://github.com/bugscope", "X-Title": "BugScope"},
+    "name": "NVIDIA NIM (Devstral 2 123B)",
+    "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+    "key_env": "NVIDIA_API_KEY",
+    "model": "mistralai/devstral-2-123b-instruct-2512",
+    "extra_headers": {},
     },
     {
         "name": "Groq (llama-3.3-70b)",
@@ -244,20 +249,27 @@ def _call_llm(provider: dict, message: str, diff: str) -> dict | None:
     }
 
     try:
+
+        body = {
+            "model": provider["model"],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": TRIAGE_PROMPT.format(message=message, diff=truncated_diff),
+                }
+            ],
+        }
+        if "github.ai" in provider["url"]:
+            body["max_completion_tokens"] = 1024
+        else:
+            body["max_tokens"] = 300
+            body["temperature"] = 0.1
+
+ 
         resp = requests.post(
             provider["url"],
             headers=headers,
-            json={
-                "model": provider["model"],
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": TRIAGE_PROMPT.format(message=message, diff=truncated_diff),
-                    }
-                ],
-                "temperature": 0.1,
-                "max_tokens": 300,
-            },
+            json=body,
             timeout=60,
         )
 
@@ -271,8 +283,14 @@ def _call_llm(provider: dict, message: str, diff: str) -> dict | None:
                 return None
 
             if content is None:
-                log.warning(f"{provider['name']} returned null content")
-                return None
+                # Reasoning models (e.g. StepFun) may put output in reasoning_content
+                try:
+                    content = resp_json["choices"][0]["message"].get("reasoning_content", "")
+                except (KeyError, IndexError, TypeError):
+                    pass
+                if not content:
+                    log.warning(f"{provider['name']} returned null content")
+                    return None
 
             log.debug(f"{provider['name']} raw response: {content[:500]}")
             content = content.strip()
@@ -365,7 +383,7 @@ def format_alert(owner: str, repo: str, commit: dict, keywords: list, llm_result
         conf = llm_result.get("confidence", "?")
         cat = llm_result.get("category", "?")
         summary = llm_result.get("summary", "")
-        llm_verdict = f"\n🤖 <b>LLM:</b> [{conf}] {cat}\n{summary}"
+        llm_verdict = f"\n <b>LLM ({llm_result.get('_provider', '?')}):</b> [{conf}] {cat}\n{summary}"
 
     return (
         f"🔍 <b> Target: {owner}/{repo} </b>\n"
